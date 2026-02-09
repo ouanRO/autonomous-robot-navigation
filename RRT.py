@@ -30,6 +30,8 @@ class RRT():
         self.waypoints = []                             #liste des points de repères
 
     def addChild(self, x,y):
+        # Ajoute un nouveau noeud enfant au noeud le plus proche
+        # si le noeud correspond au but il connecte directement au but
         if( x == self.goal.X):
             self.nearestNode.children.append(self.goal)
             self.goal.parent = self.nearestNode
@@ -39,12 +41,15 @@ class RRT():
             tampNode.parent = self.nearestNode
 
     def sampleAPoint(self):
+        # Génère un point aléatoire dans la grille pour l’exploration
         x = random.randint(1, grid.shape[1])
         y = random.randint(1, grid.shape[0])
         point = np.array([x,y])
         return point
     
     def steerToPoint(self, start,end):
+        # Calcule un nouveau point dans la direction de end depuis star
+    # à une distance égale à la longueur d’une branche 
         offset = self.lengthBranch*self.unitVector(start,end)
         point = np.array([start.X + offset[0], start.Y + offset[1]])
         if point[0] >= grid.shape[1]:
@@ -54,21 +59,33 @@ class RRT():
         return point
     
     def isInObstacle(self,start,end):
+
+        #Vérifie si la branche entre deux points traverse un obstacle dans la grille
+
+        # Version avec vérification d'osbtacle sur chemin d'une branche
         u_hat = self.unitVector(start,end) #u_hat : vecteur u normaliser (û)
         testPoint = np.array([0.0,0.0])
         for i in range(self.lengthBranch):
-            testPoint[0] = start.X+ 1*u_hat[0]
-            testPoint[1] = start.Y+ 1*u_hat[1]
+            testPoint[0] = start.X+ i*u_hat[0]
+            testPoint[1] = start.Y+ i*u_hat[1]
             if self.grid[round(testPoint[1]),round(testPoint[0])] == 1:
                 return True
         return False
+        
+        '''
+        return (self.grid[round(end[1]),round(end[0])] == 1) // ne verifie pas si il y'a un obstacle sur le chemin d'une branche 
+        '''
+        
+        
     
     def unitVector(self,start,end):
+        # Calcule et retourne le vecteur unitaire normalisé entre deux points
         vector = np.array([end[0]-start.X, end[1]-start.Y])
         u_hat = vector/np.linalg.norm(vector)
         return u_hat
     
     def findNearest(self,root,point):
+        # Recherche récursive dans l’arbre le noeud le plus proche d’un point donné
         if not root:
             return
         dist = self.distance(root,point)
@@ -80,18 +97,23 @@ class RRT():
 
 
     def distance(self,noeud1,point):
+         # Calcule la distance euclidienne entre un noeud et un point
         dist = np.sqrt((noeud1.X - point[0])**2 + (noeud1.Y - point[1])**2)
         return dist
     
     def goalFound(self,point):
+        # Indique si un point est suffisamment proche du but pour considérer que le but est atteint
         if self.distance(self.goal,point) <= self.lengthBranch:
             return True
 
     def resetNearestValues(self):
+        # Réinitialise les variables utilisées pour trouver le noeud le plus proche avant une nouvelle recherche
         self.nearestNode = None
         self.nearestDist = 10000
     
     def retraceRRTPath(self,goal):
+        # Remonte récursivement depuis le noeud but jusqu’à la racine
+    #  en enregistrant le chemin et calculant la distance totale
         if goal.X == self.randomTree.X:
             return
         self.numberWaypoints += 1
@@ -134,6 +156,8 @@ for i in range(rrt.iteration):
             print("goal found")
             break
 
+         
+
 rrt.retraceRRTPath(rrt.goal)
 rrt.waypoints.insert(0,start)
 print("Nombre de repères: ",rrt.numberWaypoints)
@@ -142,4 +166,5 @@ print("point de repère: ",rrt.waypoints)
 for i in range(len(rrt.waypoints)-1):
     plt.plot([rrt.waypoints[i][0],rrt.waypoints[i+1][0]], [rrt.waypoints[i][1],rrt.waypoints[i+1][1]], 'ro',linestyle="--")
     plt.pause(0.10)
+plt.show() 
 
