@@ -3,35 +3,38 @@ import random
 import pygame  # pour les rectangles e
 
 class treeNode():
-    def __init__(self, X, Y):
+    def __init__(self, X, Y,teta=None):
         self.X = X #position x
         self.Y = Y  # position y
+        self.teta = teta # position angulaire (au départ nulle)
         self.children = [] #enfants des noeuds
         self.parent = None # parents des noeuds
 
 class RRT():
-    def __init__(self, start, goal, iteration, grid, stepSize):
+    def __init__(self, start, goal, iteration, grid, stepSize,teta):
         self.randomTree = treeNode(start[0],start[1]) # position de départ
         self.goal = treeNode(goal[0],goal[1])          # objectif
         self.nearestNode = None                         # plus proche noeud
         self.iteration = min(iteration,400)             # nombre total d'itération (limite a 200)
         self.grid = grid                                # la carte (liste de rectangles maintenant que c'est pygame)
         self.lengthBranch = stepSize                    # longueur des branches
+        self.angleBranch = np.radians(teta) if teta is not None else None           # angle des branches (converti en radians)
         self.pathDist = 0                               # longueur total parcouru
-        self.nearestDist = 10000                        # distancedu plus proche noeud (intialiser a un trs gros nombre)
+        self.nearestDist = 10000                        # distance du plus proche noeud (intialiser a un trs gros nombre)
         self.numberWaypoints = 0                        # nombre de point de repère
         self.waypoints = []                             #liste des points de repères
         self.toutes_les_branches = []                    # liste de toutees les branches
 
-    def addChild(self, x,y):
+    def addChild(self, x,y,teta=None):
         # Ajoute un nouveau noeud enfant au noeud le plus proche
         # si le noeud correspond au but il connecte directement au but
         if( x == self.goal.X):
             self.toutes_les_branches.append(((self.nearestNode.X, self.nearestNode.Y), (self.goal.X, self.goal.Y)))
             self.nearestNode.children.append(self.goal)
             self.goal.parent = self.nearestNode
+            self.goal.teta = teta
         else:
-            tampNode = treeNode(x,y)
+            tampNode = treeNode(x,y,teta=teta)
             self.toutes_les_branches.append(((self.nearestNode.X, self.nearestNode.Y), (x, y)))
             self.nearestNode.children.append(tampNode)
             tampNode.parent = self.nearestNode
@@ -49,19 +52,45 @@ class RRT():
         offset = self.lengthBranch*self.unitVector(start,end)
         point = np.array([start.X + offset[0], start.Y + offset[1]])
 
+        #calcule de l'angle
+        teta = np.arctan2(point[1] - start.Y, point[0] - start.X)
+        """
+         if self.angleBranch is not None:
+            teta += np.random.uniform(-self.angleBranch, self.angleBranch)
+        """
+       
+        
+        # Si angle trop important restreindre l'angle
+        if start.teta is not None and self.angleBranch is not None:
+            diff = teta - start.teta
+
+            diff = (diff + np.pi)% (2*np.pi) - np.pi # normalise dans [-pi,pi]
+
+            diff = np.clip(diff,-self.angleBranch,self.angleBranch)
+            teta = start.teta + diff
+
+        
+
+        # recalcule du point après restriction d'angle
+        point[0] = start.X + self.lengthBranch * np.cos(teta) 
+        point[1] = start.Y + self.lengthBranch * np.sin(teta)
+        
+
         # On empeche le point de sortir de la fenetre
         if point[0] >= 800: point[0] = 800 - 1
         if point[1] >= 600: point[1] = 600 - 1
         if point[0] < 0: point[0] = 0
         if point[1] < 0: point[1] = 0
 
-        return point
+        return point,teta
     
     def isInObstacle(self,start,end):
         u_hat = self.unitVector(start,end) 
         testPoint = np.array([0.0,0.0])
         # elle regarde pixel par pixel si la branche touche un obstacle en avançant de 1 pixel à la fois dans la direction de la branche
         # donc impossible que la branche traverse un obstacle sans que cette fonction le détecte
+
+        
         for i in range(self.lengthBranch):
             testPoint[0] = start.X+ i*u_hat[0]
             testPoint[1] = start.Y+ i*u_hat[1]
@@ -117,7 +146,7 @@ class RRT():
     def compute_path(self):
     
         # on remet à zéro pour que tout soit propre
-        self.randomTree = treeNode(self.randomTree.X, self.randomTree.Y)
+        self.randomTree = treeNode(self.randomTree.X, self.randomTree.Y,teta=None)
         self.nearestNode = None
         self.pathDist = 0
         self.waypoints = []
@@ -134,17 +163,17 @@ class RRT():
             # On trouve le noeud le plus proche dans l'arbre
             self.findNearest(self.randomTree, point)
             
-            # On crée un nouveau point dans cette direction
-            new = self.steerToPoint(self.nearestNode, point)
+            # On crée un nouveau point dans cette direction avec un angle
+            new,teta = self.steerToPoint(self.nearestNode, point)
             
             # On vérifie si on touche un obstacle un rectangle pygame
             if not self.isInObstacle(self.nearestNode, new):
                 # Si on a pas d'obstacle alors on ajoute le point à l'arbre
-                self.addChild(new[0], new[1])
+                self.addChild(new[0], new[1],teta = teta)
                 
                 # Si on est arrivé au but 
                 if self.goalFound(new):
-                    self.addChild(self.goal.X, self.goal.Y)
+                    self.addChild(self.goal.X, self.goal.Y,teta = teta)
                     
                     # alors on reconstruit le chemin
                     self.retraceRRTPath(self.goal)

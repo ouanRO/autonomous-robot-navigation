@@ -3,8 +3,16 @@ import math
 import sys
 from RRT import RRT
 
-pygame.init()
 
+pygame.init()
+# Ajout ligne de commande pour les paramètres (mettre plus si besoin de modifier plus de paramètre)
+lb = int(input("Longueur des branches : "))
+nbIt = int(input("Nombre d'itération : "))
+Inputangle = (input("angle des branches (mettre None si pas d'angle): "))
+if(Inputangle == "None"):
+    angle = None
+else:
+    angle = int(Inputangle)
 largeur, hauteur = 800, 600
 fenetre = pygame.display.set_mode((largeur, hauteur))
 
@@ -54,23 +62,24 @@ clock = pygame.time.Clock() # Horloge pour gerer les images par seconde
 IPS = 30
 
 liste_obstacles = []
-rectangle1 = pygame.Rect(200, 150, 100, 300)
+rectangle1 = pygame.Rect(200, 150, 130, 330) # ajout du rayon du robot dans la longueur et la largeur des rectangles
 liste_obstacles.append(rectangle1)
-rectangle2 = pygame.Rect(500, 150, 100, 300)        
+rectangle2 = pygame.Rect(500, 150, 130, 330)        
 liste_obstacles.append(rectangle2)
-rectangle3 = pygame.Rect(350, 150, 100, 100)
+rectangle3 = pygame.Rect(350, 150, 130, 130)
 liste_obstacles.append(rectangle3)
 
 depart = (50, 50)          # point de départ du robot
 arrivee = (700, 500)       # objectif en bas à droite
-long_branche = 30          # longueur d'une branche
-iterations = 400          # nombre d'essais pour trouver le chemin dans le code de RRT fixée par yoann
+long_branche = lb          # longueur d'une branche
+iterations = nbIt          # nombre d'essais pour trouver le chemin dans le code de RRT fixée par yoann
+teta = angle                   # angle de départ  (mettre a None pour comparer l'arbre avec et sans restriction d'angle )
 
 # on place le robot au départ
 robot_test.x = depart[0]
 robot_test.y = depart[1]
 
-solveur = RRT(depart, arrivee, iterations, liste_obstacles, long_branche)
+solveur = RRT(depart, arrivee, iterations, liste_obstacles, long_branche,teta)
 chemin_trouve, arbre_complet = solveur.compute_path() # On récupère la liste de points du chemin trouvé pour l'afficher dans le simulateur
 
 #print(chemin_trouve)
