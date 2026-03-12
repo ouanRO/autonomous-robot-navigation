@@ -80,9 +80,11 @@ robot_test.x = depart[0]
 robot_test.y = depart[1]
 
 solveur = RRT(depart, arrivee, iterations, liste_obstacles, long_branche,teta)
+
 chemin_trouve, arbre_complet = solveur.compute_path() # On récupère la liste de points du chemin trouvé pour l'afficher dans le simulateur
 
-#print(chemin_trouve)
+
+    
 
 while run:
     clock.tick(IPS)
@@ -97,14 +99,28 @@ while run:
         # une branche contient ((x1, y1), (x2, y2))
         pygame.draw.line(fenetre, (150, 150, 150), branche[0], branche[1], 1)
     
-    if len(chemin_trouve) > 1: # on dessine que si on a trouvé un chemin
+    if chemin_trouve != None: # on dessine que si on a trouvé un chemin
 
         # pygame.draw.lines(surface, couleur, fermé ?, liste_points, épaisseur)
         pygame.draw.lines(fenetre, (0, 0, 255), False, chemin_trouve, 3)
         
-        # on dessiner le point d'arrivée en Vert
-        pygame.draw.circle(fenetre, (0, 255, 0), arrivee, 10)
+    else: # Si pas de chemin trouvé affiche bulle de texte
 
+        # Police et taille du texte
+        font = pygame.font.SysFont('Arial', 24)  
+        text_surface = font.render("Pas de chemin trouvé", True, (0,0,0))
+        padding = 10
+        bubble_rect = text_surface.get_rect()
+        bubble_rect.inflate_ip(padding*2, padding*2)  # élargit le rectangle pour le padding
+        bubble_rect.topleft = (300, 300)  # position à l'écran
+        
+        pygame.draw.rect(fenetre, (255,255,255), bubble_rect, border_radius=8)
+
+        # Dessiner le texte
+        fenetre.blit(text_surface, (bubble_rect.x + padding, bubble_rect.y + padding))
+
+    # on dessiner le point d'arrivée en Vert
+    pygame.draw.circle(fenetre, (0, 255, 0), arrivee, 10)
     pygame.draw.circle(fenetre,robot_couleur, (robot_test.x, robot_test.y),robot_test.robot_rayon)
     pygame.display.flip()
 

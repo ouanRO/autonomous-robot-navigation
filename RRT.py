@@ -182,11 +182,15 @@ class RRT():
                     path_for_pygame = []
                     # on ajoute le départ
                     path_for_pygame.append((self.randomTree.X, self.randomTree.Y)) # on l'apelle rendomTree mais cest bien un départ 
-                    # on ajoute les autres points                                   # elle est fixée dans le constructeurpar yoann
+                    # on ajoute les autres points                                   # elle est fixée dans le constructeur
                     for p in self.waypoints:
                         path_for_pygame.append((p[0], p[1]))
                         
-                    return path_for_pygame , self.toutes_les_branches # on renvoie les liste au simulateur 
+                    return path_for_pygame , self.toutes_les_branches # on renvoie les listes au simulateur
+        return None,self.toutes_les_branches # Si pas de chemin au but trouvé renvoi toutes les branches de l'arbre et None
+               
+                
+            
                     
         print("Aucun chemin trouvé ")
         return [] # liste vide si échec
