@@ -39,7 +39,7 @@ epsilon_min = 0.01   # on gardera toujours 1% de hasard pour qu'il cherche toujo
 epsilon_decay = 0.995 # a la fin de chaque partie on multiplie epsilon pour le reduire et le rendre moin random
 
 
-nb_episodes = 500 # le robot va essayer 500 fois 
+nb_episodes = 500 # le robot va essayer 500 fois  mais on peut l'ajuster pour l'entreiner plus longtemps, dans ce cas precis il faut enlever l'affichage par seconde de pygame qui bride le temps de calcule 
 
 for episode in range(nb_episodes):
     etat = env.reset() # on replace le robot au depart
@@ -109,4 +109,4 @@ for episode in range(nb_episodes):
         
     print(f"Épisode {episode} terminé avec un score de {score_episode}")
 
-print("Entraînement terminé !")
+print("Entraînement terminé")
