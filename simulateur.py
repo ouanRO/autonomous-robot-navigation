@@ -2,19 +2,31 @@ import pygame
 import math
 import sys
 from RRT import RRT
+from RRTSC import RRTSC
+
+def arguments():
+    try:
+        algo = int(input("Choisir entre RRT taper 1 et RRTSC taper 2 : "))
+        if algo != 1 and algo != 2:
+            print("Veuillez choisir entre 1 et 2")
+            return arguments()  # return manquait
+        nbIt = int(input("Nombre d'itération : "))
+        lb = int(input("Longueur des branches : "))
+        Inputangle = input("Angle des branches (mettre None si pas d'angle): ")
+        angle = None if Inputangle == "None" else int(Inputangle)
+        return algo, nbIt, lb, angle
+    except ValueError:
+        print("Entrée invalide, veuillez recommencer")
+        return arguments()
 
 
-pygame.init()
-# Ajout ligne de commande pour les paramètres (mettre plus si besoin de modifier plus de paramètre)
-lb = int(input("Longueur des branches : "))
-nbIt = int(input("Nombre d'itération : "))
-Inputangle = (input("angle des branches (mettre None si pas d'angle): "))
-if(Inputangle == "None"):
-    angle = None
-else:
-    angle = int(Inputangle)
+
+algo,iterations,long_branche,teta=arguments()
 largeur, hauteur = 800, 600
 fenetre = pygame.display.set_mode((largeur, hauteur))
+pygame.init()
+# Ajout ligne de commande pour les paramètres (mettre plus si besoin de modifier plus de paramètre)
+
 
 fond_gris = (200, 200, 200)
 robot_couleur = (50, 50, 50) # couleur noire
@@ -69,18 +81,23 @@ liste_obstacles.append(rectangle2)
 rectangle3 = pygame.Rect(350, 150, 130, 130)
 liste_obstacles.append(rectangle3)
 
+
 depart = (50, 50)          # point de départ du robot
 arrivee = (700, 500)       # objectif en bas à droite
-long_branche = lb          # longueur d'une branche
-iterations = nbIt          # nombre d'essais pour trouver le chemin dans le code de RRT fixée par yoann
-teta = angle                   # angle de départ  (mettre a None pour comparer l'arbre avec et sans restriction d'angle )
+          # longueur d'une branche
+        # nombre d'essais pour trouver le chemin dans le code de RRT fixée par yoann
+                   # angle de départ  (mettre a None pour comparer l'arbre avec et sans restriction d'angle )
 
 # on place le robot au départ
 robot_test.x = depart[0]
 robot_test.y = depart[1]
 
-solveur = RRT(depart, arrivee, iterations, liste_obstacles, long_branche,teta)
+if algo == 1:
+    solveur = RRT(depart, arrivee,iterations, liste_obstacles, long_branche,teta)
+elif algo == 2:
+    solveur = RRTSC(depart, arrivee,iterations, liste_obstacles, long_branche,teta)
 
+    
 chemin_trouve, arbre_complet = solveur.compute_path() # On récupère la liste de points du chemin trouvé pour l'afficher dans le simulateur
 
 
@@ -102,7 +119,7 @@ while run:
     if chemin_trouve != None: # on dessine que si on a trouvé un chemin
 
         # pygame.draw.lines(surface, couleur, fermé ?, liste_points, épaisseur)
-        pygame.draw.lines(fenetre, (0, 0, 255), False, chemin_trouve, 3)
+        pygame.draw.lines(fenetre, (0, 0, 255), False, chemin_trouve, 1)
         
     else: # Si pas de chemin trouvé affiche bulle de texte
 

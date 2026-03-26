@@ -13,12 +13,12 @@ class treeNode():
 
     
 
-class RRT():
+class RRTSC():
     def __init__(self, start, goal, iteration, grid, stepSize,theta):
         self.randomTree = treeNode(start[0],start[1]) # position de départ
         self.goal = treeNode(goal[0],goal[1])          # objectif
         self.nearestNode = None                         # plus proche noeud
-        self.iteration = min(iteration,400)             # nombre total d'itération (limite a 200)
+        self.iteration = iteration            
         self.grid = grid                                # la carte (liste de rectangles maintenant que c'est pygame)
         self.lengthBranch = stepSize                    # longueur des branches
         self.angleBranch = np.radians(theta) if theta is not None else None           # angle des branches (converti en radians)
@@ -49,10 +49,10 @@ class RRT():
         point = np.array([x,y])
         return point
     
-    def steerToPoint(self, start,end):
+    def steerToPoint(self, start,end,length):
         # Calcule un nouveau point dans la direction de end depuis star
         # à une distance égale à la longueur d’une branche 
-        offset = self.lengthBranch*self.unitVector(start,end)
+        offset = length*self.unitVector(start,end)
         point = np.array([start.X + offset[0], start.Y + offset[1]])
 
         #calcule de l'angle
@@ -75,8 +75,8 @@ class RRT():
         
 
         # recalcule du point après restriction d'angle
-        point[0] = start.X + self.lengthBranch * np.cos(theta) 
-        point[1] = start.Y + self.lengthBranch * np.sin(theta)
+        point[0] = start.X + length * np.cos(theta) 
+        point[1] = start.Y + length * np.sin(theta)
         
 
         # On empeche le point de sortir de la fenetre
@@ -100,6 +100,21 @@ class RRT():
             for rect in self.grid:   # on parcourt les rectangles de la grille pour voir si le point de test est dans un obstacle
                 if rect.collidepoint(testPoint[0], testPoint[1]):
                     return True #
+        return False
+    
+    def isInObstacleFullPath(self, nodeI, pointJ):
+        # Calcule la distance réelle entre les deux points
+        dist = int(self.distance(nodeI, pointJ))
+        if dist == 0:
+            return False
+        u_hat = self.unitVector(nodeI, pointJ)
+        testPoint = np.array([0.0, 0.0])
+        for i in range(dist):  # parcourt toute la distance du chemin
+            testPoint[0] = nodeI.X + i * u_hat[0]
+            testPoint[1] = nodeI.Y + i * u_hat[1]
+            for rect in self.grid:
+                if rect.collidepoint(testPoint[0], testPoint[1]):
+                    return True
         return False
 
     def unitVector(self,start,end):
@@ -146,55 +161,106 @@ class RRT():
         self.pathDist += self.lengthBranch
         self.retraceRRTPath(goal.parent)
 
+    def shortcut_path(self, path, seuil):
+        disk_radius = self.lengthBranch * 0.6
+
+        cout_precedent = float('inf')
+        ratio = 1.0
+
+        while ratio > seuil: # Tant qu'on peut améliorer le chemin on continu
+            ameliore = False
+            i = 0
+
+            while i < len(path) - 2:
+                nodeI = treeNode(path[i][0], path[i][1])
+                theta_i = np.arctan2(path[i+1][1] - path[i][1], path[i+1][0] - path[i][0])
+                nodeI.theta = theta_i
+
+                meilleur_j = None
+                meilleure_branche = None
+
+                # On tire des branches de longueur croissante 
+                for multiplicateur in range(1, len(path) - i):
+                    longueur = self.lengthBranch * multiplicateur
+
+                    # On tire dans plusieurs directions
+                    for j in range(i + 2, len(path)):
+                        #On vise un noeud plus loin dans le chemin
+                        cible = np.array([path[j][0], path[j][1]])
+                        
+                        
+                        new_point, _ = self.steerToPoint(nodeI, cible, longueur)
+                        branche_end = [new_point[0], new_point[1]]
+
+                         # si on touche un obstacle on s'arrete
+                        if self.isInObstacleFullPath(nodeI, branche_end): 
+                            break 
+
+                        dist_branche_disqueJ = self.distance(treeNode(new_point[0], new_point[1]), [path[j][0], path[j][1]])
+                        if dist_branche_disqueJ <= disk_radius:
+                            if meilleur_j is None or j > meilleur_j:
+                                meilleur_j = j
+                                meilleure_branche = (new_point[0], new_point[1])
+
+                if meilleur_j is not None:
+                    # Si on trouve un raccourcis on remplace les branches précédente par le raccourcis
+                    path = path[:i+1] + [meilleure_branche] + path[meilleur_j:]
+                    ameliore = True
+
+                i += 1
+
+            cout_actuel = sum(
+                self.distance(treeNode(path[k][0], path[k][1]), [path[k+1][0], path[k+1][1]])
+                for k in range(len(path) - 1)
+            )
+
+            if cout_precedent == float('inf'):
+                ratio = 1.0
+            else:
+                ratio = (cout_precedent - cout_actuel) / cout_precedent if cout_actuel < cout_precedent else 0.0
+
+            cout_precedent = cout_actuel
+
+            if not ameliore:
+                break
+
+        return path
+
+
     def compute_path(self):
-    
-        # on remet à zéro pour que tout soit propre
-        self.randomTree = treeNode(self.randomTree.X, self.randomTree.Y,theta=None)
+        self.randomTree = treeNode(self.randomTree.X, self.randomTree.Y, theta=None)
         self.nearestNode = None
         self.pathDist = 0
         self.waypoints = []
         self.toutes_les_branches = []
 
-        # Boucle principale de recherche
         for i in range(self.iteration):
-            # On réinitialise la distance min à chaque tour
             self.resetNearestValues()
-
-            # On tire un point au hasard
             point = self.sampleAPoint()
-            
-            # On trouve le noeud le plus proche dans l'arbre
             self.findNearest(self.randomTree, point)
-            
-            # On crée un nouveau point dans cette direction avec un angle
-            new,theta = self.steerToPoint(self.nearestNode, point)
-            
-            # On vérifie si on touche un obstacle un rectangle pygame
+            new, theta = self.steerToPoint(self.nearestNode, point,self.lengthBranch)
+
             if not self.isInObstacle(self.nearestNode, new):
-                # Si on a pas d'obstacle alors on ajoute le point à l'arbre
-                self.addChild(new[0], new[1],theta = theta)
-                
-                # Si on est arrivé au but 
+                self.addChild(new[0], new[1], theta=theta)
+
                 if self.goalFound(new):
-                    self.addChild(self.goal.X, self.goal.Y,theta = theta)
-                    
-                    # alors on reconstruit le chemin
+                    self.addChild(self.goal.X, self.goal.Y, theta=theta)
                     self.retraceRRTPath(self.goal)
-                    
-                    # on convertit le chemin en liste simple pour le simulateur en pygame
-                    path_for_pygame = []
-                    # on ajoute le départ
-                    path_for_pygame.append((self.randomTree.X, self.randomTree.Y)) # on l'apelle rendomTree mais cest bien un départ 
-                    # on ajoute les autres points                                   # elle est fixée dans le constructeur
+
+                    # Chemin brut
+                    path_for_pygame = [(self.randomTree.X, self.randomTree.Y)]
                     for p in self.waypoints:
                         path_for_pygame.append((p[0], p[1]))
-                        
-                    return path_for_pygame , self.toutes_les_branches # on renvoie les listes au simulateur
-        return None,self.toutes_les_branches # Si pas de chemin au but trouvé renvoi toutes les branches de l'arbre et None
+
+                    # Phase d'amélioration par raccourcis
+                    print("nombre de noeuds pour chemin trouvé: "+str(len(path_for_pygame)))
+                    path_for_pygame = self.shortcut_path(path_for_pygame,0.001) # Mettre 1.0 pour pas d'amélioration
+                    print("nombre de noeuds après raccourcis trouvé: "+str(len(path_for_pygame)))
+                    return path_for_pygame, self.toutes_les_branches
+
+        return None, self.toutes_les_branches
+
+    
                
                 
-            
-                    
-        print("Aucun chemin trouvé ")
-        return [] # liste vide si échec
-
+        
