@@ -1,6 +1,7 @@
 import numpy as np
 import random
 import pygame  # pour les rectangles e
+import time
 
 class treeNode():
     def __init__(self, X, Y,theta=None):
@@ -161,15 +162,31 @@ class RRTSC():
         self.pathDist += self.lengthBranch
         self.retraceRRTPath(goal.parent)
 
+    def verifAngle(self,parentNode,childNode):
+        if self.angleBranch is None:
+            return True
+        if parentNode.theta is None:
+            return True
+        angleBranche = np.arctan2(childNode.Y - parentNode.Y,childNode.X-parentNode.X)
+
+        diffAngle = angleBranche - parentNode.theta
+        diffAngle = (diffAngle+np.pi) % (2*np.pi) - np.pi
+
+        return abs(diffAngle) <= self.angleBranch
+    
     def shortcut_path(self, path, seuil):
-        disk_radius = self.lengthBranch * 0.6
+        disk_radius = self.lengthBranch * 0.25
 
         cout_precedent = float('inf')
         ratio = 1.0
 
         while ratio > seuil: # Tant qu'on peut améliorer le chemin on continu
+            
             ameliore = False
             i = 0
+            cout_precedent = sum(
+                self.distance(treeNode(path[k][0], path[k][1]), [path[k+1][0], path[k+1][1]])
+                for k in range(len(path) - 1))
 
             while i < len(path) - 2:
                 nodeI = treeNode(path[i][0], path[i][1])
@@ -203,9 +220,23 @@ class RRTSC():
                                 meilleure_branche = (new_point[0], new_point[1])
 
                 if meilleur_j is not None:
-                    # Si on trouve un raccourcis on remplace les branches précédente par le raccourcis
-                    path = path[:i+1] + [meilleure_branche] + path[meilleur_j:]
-                    ameliore = True
+                    nodeI_verif = treeNode(path[i][0], path[i][1])
+                    nodeI_verif.theta = theta_i
+
+                    nodeBranche = treeNode(meilleure_branche[0], meilleure_branche[1])
+
+                    # Angle du noeud meilleur_j dans le chemin
+                    if meilleur_j < len(path) - 1:
+                        theta_j = np.arctan2(path[meilleur_j+1][1] - path[meilleur_j][1],
+                                            path[meilleur_j+1][0] - path[meilleur_j][0])
+                    else:
+                        theta_j = theta_i  # dernier noeud, pas de contrainte
+                    nodeJ_verif = treeNode(path[meilleur_j][0], path[meilleur_j][1])
+                    nodeJ_verif.theta = theta_j
+
+                    if self.verifAngle(nodeI_verif, nodeBranche) and self.verifAngle(nodeBranche, nodeJ_verif):
+                        path = path[:i+1] + [meilleure_branche] + path[meilleur_j:]
+                        ameliore = True
 
                 i += 1
 
@@ -219,7 +250,7 @@ class RRTSC():
             else:
                 ratio = (cout_precedent - cout_actuel) / cout_precedent if cout_actuel < cout_precedent else 0.0
 
-            cout_precedent = cout_actuel
+            
 
             if not ameliore:
                 break
@@ -234,7 +265,9 @@ class RRTSC():
         self.waypoints = []
         self.toutes_les_branches = []
 
+        
         for i in range(self.iteration):
+            
             self.resetNearestValues()
             point = self.sampleAPoint()
             self.findNearest(self.randomTree, point)
@@ -251,11 +284,11 @@ class RRTSC():
                     path_for_pygame = [(self.randomTree.X, self.randomTree.Y)]
                     for p in self.waypoints:
                         path_for_pygame.append((p[0], p[1]))
-
+    
                     # Phase d'amélioration par raccourcis
-                    print("nombre de noeuds pour chemin trouvé: "+str(len(path_for_pygame)))
+                    
                     path_for_pygame = self.shortcut_path(path_for_pygame,0.001) # Mettre 1.0 pour pas d'amélioration
-                    print("nombre de noeuds après raccourcis trouvé: "+str(len(path_for_pygame)))
+                    
                     return path_for_pygame, self.toutes_les_branches
 
         return None, self.toutes_les_branches

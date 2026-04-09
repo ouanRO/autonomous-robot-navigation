@@ -18,7 +18,7 @@ class RRT():
         self.randomTree = treeNode(start[0],start[1]) # position de départ
         self.goal = treeNode(goal[0],goal[1])          # objectif
         self.nearestNode = None                         # plus proche noeud
-        self.iteration = min(iteration,400)             # nombre total d'itération (limite a 200)
+        self.iteration = iteration             # nombre total d'itération (limite a 200)
         self.grid = grid                                # la carte (liste de rectangles maintenant que c'est pygame)
         self.lengthBranch = stepSize                    # longueur des branches
         self.angleBranch = np.radians(theta) if theta is not None else None           # angle des branches (converti en radians)

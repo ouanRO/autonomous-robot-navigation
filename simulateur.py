@@ -3,13 +3,14 @@ import math
 import sys
 from RRT import RRT
 from RRTSC import RRTSC
+from RRTStar import RRTStar
 
 def arguments():
     try:
-        algo = int(input("Choisir entre RRT taper 1 et RRTSC taper 2 : "))
-        if algo != 1 and algo != 2:
-            print("Veuillez choisir entre 1 et 2")
-            return arguments()  # return manquait
+        algo = int(input("Choisir entre RRT taper 1 , RRTSC taper 2  ou RRTStart taper 3: "))
+        if algo != 1 and algo != 2 and algo !=3:
+            print("Veuillez choisir entre 1, 2 ou 3")
+            return arguments()  
         nbIt = int(input("Nombre d'itération : "))
         lb = int(input("Longueur des branches : "))
         Inputangle = input("Angle des branches (mettre None si pas d'angle): ")
@@ -96,6 +97,8 @@ if algo == 1:
     solveur = RRT(depart, arrivee,iterations, liste_obstacles, long_branche,teta)
 elif algo == 2:
     solveur = RRTSC(depart, arrivee,iterations, liste_obstacles, long_branche,teta)
+elif algo ==3:
+    solveur = RRTStar(depart,arrivee,iterations,liste_obstacles,long_branche,teta)
 
     
 chemin_trouve, arbre_complet = solveur.compute_path() # On récupère la liste de points du chemin trouvé pour l'afficher dans le simulateur
