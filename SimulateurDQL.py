@@ -11,8 +11,21 @@ import sys
 import os
 from RRT import RRT
 
+def generer_point_valide(obstacles, largeur, hauteur, rayon_robot):
+    while True:
+        # on choisit un X et Y radom avec une marge pour les bords de la map
+        x = random.randint(rayon_robot + 10, largeur - rayon_robot - 10)
+        y = random.randint(rayon_robot + 10, hauteur - rayon_robot - 10)
+        
+        # on simule la taille du robot pour voir si ca touche un mur
+        rect_test = pygame.Rect(x - rayon_robot, y - rayon_robot, rayon_robot * 2, rayon_robot * 2)
+        
+        # si ca touche rien alors cest bon
+        if not any(rect_test.colliderect(obs) for obs in obstacles):
+            return (x, y)
+
 # on cree un reseau de neurones de 3 couches 
-# la premiere recoit les 8 valeurs de l'etat et la derniere envoie une action parmi les 5  
+# la premiere recoit les 13 valeurs de l'etat et la derniere envoie une action parmi les 5  
 
 class DQN(nn.Module):
     def __init__(self, taille_etat, nb_actions):
@@ -27,33 +40,32 @@ class DQN(nn.Module):
         x = self.fc3(x)
         return x
     
-
-# on configure la carte depart, arrivee, obstacle
 depart_robot = (50, 50)
 arrivee_finale = (700, 500)
-liste_obstacles = [
-    pygame.Rect(400, 200, 50, 200),
-    pygame.Rect(450, 350, 150, 50),
+
+# banque de cartes pour l'entrainement
+banque_cartes = [
+    # carte murs simple
+    [pygame.Rect(400, 200, 50, 200), pygame.Rect(450, 350, 150, 50)],
+    # carte arche
+    [pygame.Rect(200, 150, 150, 330), pygame.Rect(350, 150, 150, 130), pygame.Rect(500, 150, 150, 330)],
+    # carte vide
+    [],
+    # carte mur central
+    [pygame.Rect(350, 100, 100, 400)],
+    
+    # carte grosse boite centrale
+    # laisse un couloir ultra serre de 100 pixels sur les bord
+    [pygame.Rect(100, 100, 600, 400)] 
 ]
 
-# on lance RRT pour trouver un chemin entre le depart et l arrivee en evitant les obstacles
-solveur_rrt = RRT(depart_robot, arrivee_finale, 2000, liste_obstacles, 30, None)
-chemin_trouve, _ = solveur_rrt.compute_path()
-
-# si RRT n a pas trouve de chemin, on met juste l arrivee pour que le robot puisse quand meme apprendre a y aller
-if chemin_trouve is None or len(chemin_trouve) == 0:
-    chemin_trouve = [arrivee_finale]
-# sinon on enleve le point de depart du chemin trouve pour ne pas le donner en double a l environnement
-else:
-    chemin_trouve.pop(0)
-
-# on initialise l environnement et le reseau de neurones
-env = EnvironnementRobot(depart=depart_robot, waypoints=chemin_trouve)
-taille_etat = 8  # 8 entree x, y, direction cos/sin, vitesse, distance cible, angle cible (cos/sin)
+# on initialise l environnement 
+env = EnvironnementRobot(depart=depart_robot, waypoints=[arrivee_finale])
+taille_etat = 13  # 11 entrees 8 base + 3 capteur
 nb_actions = 5   
 memoire = deque(maxlen=20000) # memoire on garde les derniere 20K actions pour l entrainement
 
-# Double DQN car DQN simple n apprend rien et part juste dans les murs
+# double DQN car DQN simple n apprend rien et part juste dans les murs
 # on cree un premier reseau qui va apprendre qui est donc le joueur et 
 # un deuxieme qui va servir de d'arbitre donc le reseau cible et il va juste copier le cervrau du premier puis il juge les actions 
 # du premier pour lui donner une meilleure estimation de la valeur de chaque action
@@ -74,16 +86,52 @@ optimizer = optim.Adam(reseau.parameters(), lr=0.001)
 
 epsilon = 1.0        
 epsilon_min = 0.05  
-epsilon_decay = 0.995 
+epsilon_decay = 0.998
 
-nb_episodes = 400 
+nb_episodes = 2000
 # on garde en memoire le meilleur score pour sauvegarder le modele qui a le mieux performe
 meilleur_score = -float('inf') 
 
 # boucle d entrainement sur les episode
 for episode in range(nb_episodes):
-    # on reset l environnement a chaque episode pour repartir du debut
-    etat = env.reset() 
+    
+    # on choisit une carte au hasard 
+    carte_actuelle = random.choice(banque_cartes)
+    env.liste_obstacles = carte_actuelle
+    
+    depart_robot = generer_point_valide(carte_actuelle, 800, 600, 30)
+    arrivee_finale = generer_point_valide(carte_actuelle, 800, 600, 30)
+    
+    # on s'assure que le depart et l'arrivee ne sont pas collee
+    while math.dist(depart_robot, arrivee_finale) < 200:
+        arrivee_finale = generer_point_valide(carte_actuelle, 800, 600, 30)
+        
+    # MAJ du point de depart
+    env.depart = depart_robot
+    
+    # on cree une fausse carte pour le RRT avec des murs gonflé
+    carte_pour_rrt = []
+    for mur in carte_actuelle:
+        # 100 pixels = les 60 du diametre du robot + 40 de zone de securité
+        mur_gonfle = mur.inflate(100, 100)
+        carte_pour_rrt.append(mur_gonfle)
+    
+    # on lance le RRT avec nos nouveaux points aleatoire
+    solveur_rrt = RRT(depart_robot, arrivee_finale, 2000, carte_pour_rrt, 30, None)
+    chemin_trouve, _ = solveur_rrt.compute_path()
+
+    # si RRT n'a pas trouve de chemin, on met juste l arrivee
+    if chemin_trouve is None or len(chemin_trouve) == 0:
+        chemin_trouve = [arrivee_finale]
+    else:
+        chemin_trouve.pop(0)
+
+    # on donne le chemin calculee à l'env
+    env.waypoints_originaux = chemin_trouve.copy()
+    
+    # on reset l'env, il utilisera le nouveau env.depart
+    etat = env.reset()
+    
     # on initialise done a False pour la boucle de jeu et le score de l episode a 0 et un compteur de pas pour eviter les episode infini
     done = False 
     score_episode = 0
@@ -181,6 +229,7 @@ while True:
     done = False
     
     while not done:
+        env.clock.tick(30)
         with torch.no_grad():
             etat_tensor = torch.FloatTensor(etat).unsqueeze(0)
             q_values = reseau(etat_tensor)
