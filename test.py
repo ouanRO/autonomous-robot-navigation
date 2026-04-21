@@ -3,6 +3,7 @@ import torch.nn as nn
 import pygame
 import os
 import sys
+import random
 from env_dql import EnvironnementRobot
 from RRT import RRT
 
@@ -21,10 +22,21 @@ class DQN(nn.Module):
 
 depart_robot = (50, 50)
 arrivee_finale = (700, 500)
-liste_obstacles = [
-    pygame.Rect(400, 200, 50, 200),
-    pygame.Rect(450, 350, 150, 50),
+
+cartes = [
+    [pygame.Rect(400, 200, 50, 200), pygame.Rect(450, 350, 150, 50)],
+    # carte arche
+    [pygame.Rect(200, 150, 150, 330), pygame.Rect(350, 150, 150, 130), pygame.Rect(500, 150, 150, 330)],
+    # carte vide
+    [],
+    # carte mur central
+    [pygame.Rect(350, 100, 100, 400)],
+    
+    # carte grosse boite centrale
+    # laisse un couloir ultra serre de 100 pixels sur les bord
+    [pygame.Rect(100, 100, 600, 400)] 
 ]
+liste_obstacles = random.choice(cartes)
 
 solveur_rrt = RRT(depart_robot, arrivee_finale, 2000, liste_obstacles, 30, None)
 chemin_trouve, _ = solveur_rrt.compute_path()
@@ -34,9 +46,10 @@ if chemin_trouve is None or len(chemin_trouve) == 0:
 else:
     chemin_trouve.pop(0) 
 
-
 env = EnvironnementRobot(depart=depart_robot, waypoints=chemin_trouve)
-taille_etat = 8  
+env.liste_obstacles = liste_obstacles # met a jour la map physique
+
+taille_etat = 13
 nb_actions = 5
 reseau = DQN(taille_etat, nb_actions)
 
@@ -57,7 +70,7 @@ while True:
     done = False
     
     while not done:
-        env.clock.tick(30)  # Limite à 30 images par seconde
+        env.clock.tick(30)  
         # pas de hasard
         with torch.no_grad():
             etat_tensor = torch.FloatTensor(etat).unsqueeze(0)
