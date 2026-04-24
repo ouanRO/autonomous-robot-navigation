@@ -1,0 +1,125 @@
+
+
+sprint 1:
+
+ 1) Modélisation MDP pour un véhicule 2D
+On définit :
+Σ=(S,A,γ,Pr,cost)
+-  États S
+Pour un véhicule 2D, un état peut être :
+s=(x,y,θ)
+x = position horizontale
+y = position verticale
+θ = orientation
+Si tu fais du Q-learning tabulaire, il faut discrétiser :
+grille 2D pour (x,y)
+angles discrets (ex: 8 directions)
+-  Actions A
+Par exemple :
+Avancer
+Tourner gauche
+Tourner droite
+Stop
+Transition γ
+s′=f(s,a)
+Exemple :
+Avancer → change (x,y)
+Tourner → change θ
+-  Récompense
+un Exemple  :
++100 si but atteint
+-100 si collision
+-1 à chaque pas (encourage trajectoire courte)
+2) Objectif RL
+On veut apprendre :
+Q(s,a)
+qui approxime :
+la récompense totale future attendue si on fait a en s
+La politique sera :
+π(s)=argamax​Q(s,a)
+ ALGORITHME Q-LEARNING NAVIGATION 2D
+Initialiser Q(s,a) arbitrairement (ex: 0)
+Pour chaque épisode:
+
+    Initialiser s = état initial
+    
+    Tant que s n’est pas terminal:
+    
+        Choisir action a avec stratégie ε-greedy:
+            - avec probabilité ε: action aléatoire
+            - sinon: a = argmax_a Q(s,a)
+        
+        Exécuter action a
+        
+        Observer:
+            - nouvel état s'
+            - récompense r
+        
+        Mettre à jour Q:
+        
+        Q(s,a) ← Q(s,a) 
+                  + α [ r + γ max_a' Q(s',a') - Q(s,a) ]
+        
+        s ← s'
+        
+    Fin Tant que
+    
+    Diminuer ε progressivement
+Fin Pour
+la  Structure typique pour ton projet
+Cycle par épisode :
+Reset véhicule
+Jusqu’à but ou collision :
+choisir action
+simuler mouvement
+calculer reward
+update Q
+Recommencer
+
+
+
+
+sprint 2 :
+1. Modification de l'Espace d'États (La Dimension Angulaire)
+Dans mon code d'origine, l'état était (y, x).Ce que j'ai changé : L'état est devenu un triplet (y, x, theta).
+Pourquoi ? Pour répondre à la demande du prof d'ajouter la dimension angulaire.
+ Le robot a maintenant une orientation (0: Est, 1: Nord, 2: Ouest, 3: Sud).
+ Impact sur la Table Q : Elle est passée de 3D à 4D : self.Q = np.zeros((height, width, 4, n_actions)).
+2. Modification de la Physique (step)
+Dans mon code, l'action (0, 1) déplaçait le robot directement à droite.Ce que j'ai changé : J'ai réécrit la logique. Les actions sont maintenant : Avancer, Tourner Gauche, Tourner Droite, ou Rien.
+Pourquoi ? Pour qu'"Avancer" dépende de l'angle theta. Si le robot veut aller à droite, il doit d'abord tourner pour être face à l'Est, puis utiliser l'action "Avancer".
+3. Ajout de la Stochasticité (Le Bruit)
+j' avais une variable noise mais elle n'était pas utilisée de manière réaliste.Ce que j'ai ajouté : Une condition if random.random() < self.noise: au début de step.Effet : Dans 20% des cas, le robot échoue son action et reste sur place. 
+Cela force l'algorithme à apprendre la prudence.
+4. Ajout de la Visualisation Heatmap (La demande du prof)
+C'est la partie totalement nouvelle que je n'avais pas.Ce que j'ai ajouté : Une fonction qui calcule $V(s) = \max_a Q(s, a)$.La palette personnalisée : J'ai créé un dégradé Rouge (Bas) -> Vert (Moyen) -> Bleu (Haut) .
+Le traitement des données : Comme la table Q est en 4D, j'ai ajouté un calcul pour extraire la meilleure valeur parmi tous les angles pour chaque case (y, x).
+
+
+sprint 3 :
+
+Passage à un simulateur physique réel :
+Dans la version originale, le robot avançait avec une vitesse constante (speed = 6).
+Maintenant, le robot possède une vitesse variable v et une accélération acc, ce qui permet de simuler
+ un mouvement plus réaliste dans un monde continu avec des positions réelles.
+La vitesse est limitée par max_speed et diminue légèrement lors des rotations pour simuler l’inertie.
+
+Contrôle en accélération :
+L’action “avancer” ne déplace plus le robot d’une distance fixe, mais augmente sa vitesse selon l’accélération, donnant un contrôle plus dynamique du mouvement.
+Une nouvelle action “freiner” a été ajoutée pour diminuer la vitesse.
+
+Nouvelle fonction de récompense :
+La récompense initiale se basait uniquement sur la distance au waypoint.
+Elle a été améliorée pour :
+Combiner la réduction de distance vers le waypoint et la réduction de distance vers l’objectif final.
+Ajouter une pénalité de temps pour éviter que le robot reste bloqué.
+Donner un bonus lorsque le robot raccourcit le chemin vers le goal, ce qui permet de “sauter” certains waypoints si c’est avantageux.
+
+Possibilité de sauvegarder et recharger l’apprentissage :
+Les méthodes save(filename) et load(filename) ont été ajoutées dans QLearningAgent.
+Le simulateur peut maintenant enregistrer la Q-table après l’apprentissage et la recharger pour réutiliser un modèle entraîné, évitant de refaire tous les épisodes.
+
+Ajustements pour plus de réalisme et stabilité :
+Normalisation des angles et des vitesses pour éviter des comportements irréalistes.
+Limitation stricte des positions du robot pour qu’il reste toujours à l’intérieur de la fenêtre.
+Mise à jour de l’état du robot pour inclure la vitesse, afin que le Q-learning prenne en compte la dynamique réelle du robot.
