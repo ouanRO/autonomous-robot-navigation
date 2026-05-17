@@ -57,6 +57,7 @@ banque_cartes = [
     # carte grosse boite centrale
     # laisse un couloir ultra serre de 100 pixels sur les bord
     [pygame.Rect(100, 100, 600, 400)] 
+    #  eyubbb ajoute la carte du grand bloc dans cette liste pour voir si il apprend à la resoudre !!
 ]
 
 # on initialise l environnement 
@@ -98,8 +99,11 @@ for episode in range(nb_episodes):
     # on choisit une carte au hasard 
     carte_actuelle = random.choice(banque_cartes)
     env.liste_obstacles = carte_actuelle
-    
+
+    # essaie d'ajouter un tirage aleatoirs des rrt et rrt* et rrt avec racourcis etccc( pas prioritaire mais au moins pour descusion pour le rapport)
+
     depart_robot = generer_point_valide(carte_actuelle, 800, 600, 30)
+
     arrivee_finale = generer_point_valide(carte_actuelle, 800, 600, 30)
     
     # on s'assure que le depart et l'arrivee ne sont pas collee

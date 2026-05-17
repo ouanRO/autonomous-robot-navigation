@@ -123,3 +123,5 @@ Ajustements pour plus de réalisme et stabilité :
 Normalisation des angles et des vitesses pour éviter des comportements irréalistes.
 Limitation stricte des positions du robot pour qu’il reste toujours à l’intérieur de la fenêtre.
 Mise à jour de l’état du robot pour inclure la vitesse, afin que le Q-learning prenne en compte la dynamique réelle du robot.
+
+sprint 4: 
