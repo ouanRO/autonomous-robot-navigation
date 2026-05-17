@@ -113,7 +113,7 @@ font_data = pygame.font.SysFont("Courier", 16, bold=True)
 
 # ENTRAÎNEMENT OFFSCREEN
 
-def train_agent(agent, rrt, start, path, inflated, episodes=100000):
+def train_agent(agent, rrt, start, path, inflated, episodes=10000):
     """Entraîne le robot SANS affichage"""
     print("TRAINING START...")
 
@@ -170,7 +170,7 @@ def train_agent(agent, rrt, start, path, inflated, episodes=100000):
 # CHARGEMENT OU ENTRAINEMENT
 if not os.path.exists("best_qtable.npy"):
     print("No Q-table → training...")
-    train_agent(agent, None, start, path, inflated, episodes=90000)
+    train_agent(agent, None, start, path, inflated, episodes=10000)
 else:
     agent.load("best_qtable.npy")
     agent.epsilon = 0.05
